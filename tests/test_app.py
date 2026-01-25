@@ -29,7 +29,7 @@ class TestMultiply:
 
     def test_multiply_positive_numbers(self):
         """Test multiplying two positive numbers."""
-        assert multiply(9, 9) == 18
+        assert multiply(9, 9) == 81
 
     def test_multiply_by_zero(self):
         """Test multiplying by zero."""
