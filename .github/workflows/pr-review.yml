@@ -28,12 +28,15 @@ jobs:
 
       - name: Get PR diff
         run: |
-          git diff origin/main...HEAD > pr_diff.txt
+          git fetch origin ${{ github.event.pull_request.base.ref }} --depth=1
+          git diff ${{ github.event.pull_request.base.sha }}...${{ github.event.pull_request.head.sha }} > pr_diff.txt
+          echo "Diff file size:" && wc -c pr_diff.txt
+
 
       - name: Run AI review
         id: ai-review
         env:
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GOOGLE_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: |
           REVIEW=$(python scripts/ai_review.py pr_diff.txt)
           echo "review<<EOF" >> $GITHUB_OUTPUT
