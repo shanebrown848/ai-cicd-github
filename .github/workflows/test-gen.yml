@@ -4,8 +4,8 @@ on:
   pull_request:
     types: [opened, synchronize]
     paths:
-      - '**.py'
-      - '!tests/**'
+      - "**.py"
+      - "!tests/**"
 
 jobs:
   generate-tests:
@@ -24,12 +24,12 @@ jobs:
 
       - name: Fetch base branch
         run: |
-          git fetch origin ${{ github.base_ref }} --depth=1
+          git fetch origin ${{ github.base_ref }} --no-tags
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: "3.11"
 
       - name: Install dependencies
         run: |
@@ -50,7 +50,7 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               body: '**Coverage check passed!** No additional tests needed.'
-            })
+            });
 
       - name: Get changed Python files
         if: steps.coverage-check.outcome == 'failure'
@@ -60,6 +60,7 @@ jobs:
             | grep -v '^tests/' \
             | grep -v '^scripts/' \
             | tr '\n' ' ')
+
           echo "files=$FILES" >> $GITHUB_OUTPUT
           echo "Final list of changed files: $FILES"
 
