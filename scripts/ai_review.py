@@ -1,9 +1,19 @@
-from google import genai
+import os
 import sys
+import time
+from google import genai
 
-client = genai.Client()
+MODEL = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash")
+MAX_RETRIES = int(os.environ.get("GEMINI_MAX_RETRIES", "4"))
+RETRY_SLEEP_SECONDS = int(os.environ.get("GEMINI_RETRY_SLEEP", "25"))
 
-def review_code(diff_text):
+
+def _is_rate_limit_error(err: Exception) -> bool:
+    msg = str(err)
+    return ("429" in msg) or ("RESOURCE_EXHAUSTED" in msg) or ("rate limit" in msg.lower())
+
+
+def review_code(client: genai.Client, diff_text: str) -> str:
     prompt = f"""You are an expert code reviewer. Review the following code diff and provide feedback.
 
 Focus on:
@@ -34,21 +44,35 @@ Code diff to review:
 Provide your review in a clear, structured format, ending with the SEVERITY_SUMMARY line.
 """
 
-    response = client.models.generate_content(
-        model="gemini-2.5-flash",
-        contents=prompt
-    )
-    return response.text
+    last_err = None
+    for attempt in range(1, MAX_RETRIES + 1):
+        try:
+            response = client.models.generate_content(
+                model=MODEL,
+                contents=prompt,
+            )
+            return (response.text or "").strip()
+        except Exception as e:
+            last_err = e
+            if _is_rate_limit_error(e):
+                time.sleep(RETRY_SLEEP_SECONDS)
+                continue
+            raise
 
-def parse_severity(review_text):
-    """Extract severity level from the review output."""
+    # Graceful fallback instead of crashing the workflow
+    return (
+        "AI review skipped due to Gemini quota/rate limit.\n\n"
+        "SEVERITY_SUMMARY: WARNING"
+    )
+
+
+def parse_severity(review_text: str) -> str:
     for line in review_text.strip().split("\n"):
         if line.strip().startswith("SEVERITY_SUMMARY:"):
             level = line.split(":", 1)[1].strip().upper()
             if level in ("CRITICAL", "WARNING", "GOOD"):
                 return level
-    return "WARNING"  # Default to WARNING if parsing fails
-
+    return "WARNING"
 
 
 if __name__ == "__main__":
@@ -59,9 +83,21 @@ if __name__ == "__main__":
     else:
         diff_content = sys.stdin.read()
 
-    review = review_code(diff_content)
+    api_key = os.environ.get("GEMINI_API_KEY")
+    if not api_key:
+        # Don’t hard-fail CI if secret isn't present (fork PRs, etc.)
+        review = "AI review skipped (missing GEMINI_API_KEY).\n\nSEVERITY_SUMMARY: WARNING"
+        print(review)
+        with open("severity.txt", "w", encoding="utf-8") as f:
+            f.write("WARNING")
+        raise SystemExit(0)
+
+    client = genai.Client(api_key=api_key)
+
+    review = review_code(client, diff_content)
     severity = parse_severity(review)
+
     print(review)
 
-    with open("severity.txt", "w") as f:
+    with open("severity.txt", "w", encoding="utf-8") as f:
         f.write(severity)
