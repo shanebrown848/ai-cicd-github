@@ -61,7 +61,7 @@ jobs:
             | grep -v '^scripts/' \
             | tr '\n' ' ')
           echo "files=$FILES" >> $GITHUB_OUTPUT
-          echo "Changed files: $FILES"
+          echo "Final list of changed files: $FILES"
 
       - name: Generate tests
         if: steps.coverage-check.outcome == 'failure' && steps.changed-files.outputs.files != ''

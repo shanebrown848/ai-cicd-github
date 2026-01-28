@@ -9,7 +9,16 @@ COVERAGE_FILE = Path("coverage.json")
 def get_coverage_percentage() -> float:
     """Run pytest with coverage and return total percent covered."""
     # Force the json file name so we know exactly what to read
-    cmd = ["pytest", "--cov=src", f"--cov-report=json:{COVERAGE_FILE}", "-q"]
+    # Use --cov=. to cover all Python files in the repo root (flat layout)
+    # Exclude tests/ and scripts/ directories from coverage
+    cmd = [
+        "pytest",
+        "--cov=.",
+        "--cov-report=json:coverage.json",
+        "--ignore=tests",
+        "--ignore=scripts",
+        "-q"
+    ]
 
     result = subprocess.run(cmd, capture_output=True, text=True)
 
@@ -35,6 +44,10 @@ def get_coverage_percentage() -> float:
         return float(data["totals"]["percent_covered"])
     except Exception as e:
         print("Failed to parse coverage JSON:", e)
+        if result.stdout:
+            print("pytest stdout:\n" + result.stdout)
+        if result.stderr:
+            print("pytest stderr:\n" + result.stderr)
         return 0.0
 
 
