@@ -1,6 +1,9 @@
 """Simple utility functions - you'll add more!"""
 
 
+def whisper(text: str) -> str:
+    return text.lower()
+
 def add(a: int, b: int) -> int:
     """Add two numbers together."""
     return a + b
