@@ -17,7 +17,7 @@ MAX_RETRIES = int(os.environ.get("GEMINI_MAX_RETRIES", "6"))
 RETRY_SLEEP_SECONDS = int(os.environ.get("GEMINI_RETRY_SLEEP", "25"))
 
 # Skip risky stuff (adjust as needed)
-SKIP_FILES = {"dangerous.py"}
+SKIP_FILES = {"dangerous.py", "scripts/generate_tests.py"}
 SKIP_FUNCTION_NAMES = {"run_command"}  # add more if needed
 
 
@@ -99,8 +99,6 @@ Return ONLY the Python test code, no explanations.
                 )
                 time.sleep(RETRY_SLEEP_SECONDS)
                 continue
-
-            # Non-rate-limit error -> bubble up
             raise
 
     raise RuntimeError(f"Gemini error: retries exhausted. Last error: {last_err}")
@@ -136,7 +134,15 @@ def main():
         if file_path.startswith("tests/"):
             continue
 
-        if Path(file_path).name in SKIP_FILES:
+        norm_path = Path(file_path).as_posix()
+
+        # Never generate tests for scripts/ helpers (including the generator itself)
+        if norm_path.startswith("scripts/"):
+            print(f"Skipping file (scripts/): {file_path}")
+            continue
+
+        # Skip specific files by either full relative path or basename
+        if norm_path in SKIP_FILES or Path(file_path).name in SKIP_FILES:
             print(f"Skipping file (in SKIP_FILES): {file_path}")
             continue
 
