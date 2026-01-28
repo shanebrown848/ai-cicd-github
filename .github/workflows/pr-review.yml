@@ -32,18 +32,37 @@ jobs:
 
       - name: Run AI review
         id: ai-review
+        continue-on-error: true
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: |
+          set +e
           REVIEW=$(python scripts/ai_review.py pr_diff.txt)
+          EXIT_CODE=$?
+          set -e
+
+          # If the AI call failed (quota/rate/etc), record that and move on
+          if [ $EXIT_CODE -ne 0 ] || [ -z "$REVIEW" ]; then
+            echo "review=AI review skipped (Gemini quota/rate limit or runtime error)." >> $GITHUB_OUTPUT
+            echo "severity=SKIPPED" >> $GITHUB_OUTPUT
+            echo "skipped=true" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
           echo "review<<EOF" >> $GITHUB_OUTPUT
           echo "$REVIEW" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
 
           SEVERITY=$(echo "$REVIEW" | grep "SEVERITY_SUMMARY" | cut -d':' -f2 | tr -d ' ')
+          if [ -z "$SEVERITY" ]; then
+            SEVERITY="WARNING"
+          fi
+
           echo "severity=$SEVERITY" >> $GITHUB_OUTPUT
+          echo "skipped=false" >> $GITHUB_OUTPUT
 
       - name: Post review comment
+        if: steps.ai-review.outputs.skipped != 'true'
         uses: actions/github-script@v7
         env:
           REVIEW: ${{ steps.ai-review.outputs.review }}
@@ -59,6 +78,7 @@ jobs:
             });
 
       - name: Apply severity label
+        if: steps.ai-review.outputs.skipped != 'true'
         uses: actions/github-script@v7
         with:
           script: |
