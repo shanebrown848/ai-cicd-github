@@ -2,8 +2,8 @@ name: Stale Code Detector
 
 on:
   # Run every Monday at 9:00 AM UTC
-  schedule:
-    - cron: '0 9 * * 1'
+#  schedule:
+#    - cron: '0 9 * * 1'
   # Allow manual triggering for testing
   workflow_dispatch:
   push:
