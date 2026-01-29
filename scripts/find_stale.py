@@ -38,6 +38,11 @@ Look for:
 2. Dead imports (imported but never used)
 3. Unreachable code (code after return statements, etc.)
 
+For each finding, estimate the cleanup time based on:
+- Simple fixes (removing an import, deleting a small function): ~2-5 minutes
+- Medium fixes (removing a function with dependencies to check): ~10-15 minutes
+- Complex fixes (removing code that might have external callers): ~30+ minutes
+
 File: {file_path}
 
 Code:
@@ -74,34 +79,23 @@ Only return the JSON, no additional text."""
         return {"error": str(e), "findings": []}
 
 def format_findings_as_markdown(all_findings: list[dict]) -> str:
-    """Format all findings as markdown for a GitHub Issue."""
+    """Format all findings as markdown with time estimates."""
     if not all_findings:
-        return "## Stale Code Report\n\nNo dead code detected in this scan."
+        return "No dead code detected in this scan."
+
+    # Calculate total cleanup time
+    # Hint: sum up all estimated_minutes, defaulting to 0 if missing
+    total_minutes = sum(f.get("estimated_minutes", 0) for f in all_findings)
 
     markdown = "## Stale Code Report\n\n"
-    markdown += f"Found {len(all_findings)} potential issues:\n\n"
+    markdown += f"**{len(all_findings)}** issues found ~**{total_minutes} minutes** total cleanup\n\n"
 
-    by_type = {}
-    for finding in all_findings:
-        finding_type = finding.get("type", "unknown")
-        if finding_type not in by_type:
-            by_type[finding_type] = []
-        by_type[finding_type].append(finding)
-
-    type_labels = {
-        "unused_function": "Unused Functions",
-        "dead_import": "Dead Imports",
-        "unreachable_code": "Unreachable Code"
-    }
-
-    for finding_type, findings in by_type.items():
-        label = type_labels.get(finding_type, finding_type)
-        markdown += f"### {label}\n\n"
-        for f in findings:
-            markdown += f"- **{f.get('name', 'Unknown')}** ({f.get('file', 'unknown')}:{f.get('line', '?')})\n"
-            markdown += f"  - {f.get('description', 'No description')}\n\n"
+    for f in all_findings:
+        mins = f.get("estimated_minutes", "?")
+        markdown += f"- **{f.get('name')}** (~{mins} min) - {f.get('description')}\n"
 
     return markdown
+
 
 
 def main():
